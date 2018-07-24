@@ -2446,6 +2446,7 @@ exports.install = function(server, callbackFunction) {
       let userLocks = [];
       if (data.releaseLocks) {
 		  //Release locks
+          //这里是把lock里面的都出列了，然后把自己的session的拿出来，其他的塞回去，搞什么？
 		  userLocks = yield* getUserLocks(docId, conn.sessionId);
       }
       // Для данного пользователя снимаем Lock с документа, если пришел флаг unlock
@@ -2463,6 +2464,7 @@ exports.install = function(server, callbackFunction) {
         if(changesToSend.length > cfgPubSubMaxChanges) {
           changesToSend = null;
         }
+        //change set的合并并没有看到，所以这里pubish的是什么，反正这个changes到这里还没有做任何处理
         yield* publish({type: commonDefines.c_oPublishType.changes, docId: docId, userId: userId,
           changes: changesToSend, startIndex: startIndex, changesIndex: puckerIndex,
           locks: arrLocks, excelAdditionalInfo: data.excelAdditionalInfo}, docId, userId);
