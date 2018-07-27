@@ -1164,7 +1164,7 @@ exports.install = function(server, callbackFunction) {
       return;
     }
     if (getIsShutdown()) {
-      sendFileError(conn, 'Server shutdow');
+      sendFileError(conn, 'Server shutdown');
       return;
     }
     conn.baseUrl = utils.getBaseUrlByConnection(conn);
@@ -2380,7 +2380,7 @@ exports.install = function(server, callbackFunction) {
     yield utils.promiseRedis(redisClient, redisClient.setex, redisKeyChangeIndex + docId, cfgExpChangeIndex, index);
   }
 
-  // Для Excel необходимо делать пересчет lock-ов при добавлении/удалении строк/столбцов
+  //原 对于Excel，您需要在添加/删除行/列时还原锁定
   function* saveChanges(conn, data) {
     const docId = conn.docId, userId = conn.user.id;
     logger.info("Start saveChanges docid: %s", docId);
@@ -2401,7 +2401,7 @@ exports.install = function(server, callbackFunction) {
       }
     }
 
-    // Стартовый индекс изменения при добавлении
+    //原 添加时启动更改索引
     const startIndex = puckerIndex;
 
     const newChanges = JSON.parse(data.changes);
@@ -2424,13 +2424,13 @@ exports.install = function(server, callbackFunction) {
     yield* setChangesIndex(docId, puckerIndex);
     const changesIndex = (-1 === deleteIndex && data.startSaveChanges) ? startIndex : -1;
     if (data.endSaveChanges) {
-      // Для Excel нужно пересчитать индексы для lock-ов
+      //原 于Excel，您需要重新计算lock-s的索引
       if (data.isExcel && false !== data.isCoAuthoring && data.excelAdditionalInfo) {
         const tmpAdditionalInfo = JSON.parse(data.excelAdditionalInfo);
-        // Это мы получили recalcIndexColumns и recalcIndexRows
+        //原 我们得到了recalcIndexColumns和recalcIndexRows
         const oRecalcIndexColumns = _addRecalcIndex(tmpAdditionalInfo["indexCols"]);
         const oRecalcIndexRows = _addRecalcIndex(tmpAdditionalInfo["indexRows"]);
-        // Теперь нужно пересчитать индексы для lock-элементов
+        //原 现在我们需要重新计算lock-elements的索引
         if (null !== oRecalcIndexColumns || null !== oRecalcIndexRows) {
           const docLock = yield* getAllLocks(docId);
           if (_recalcLockArray(userId, docLock, oRecalcIndexColumns, oRecalcIndexRows)) {
@@ -2445,11 +2445,11 @@ exports.install = function(server, callbackFunction) {
 
       let userLocks = [];
       if (data.releaseLocks) {
-		  //Release locks
+		  //原 Release locks
           //这里是把lock里面的都出列了，然后把自己的session的拿出来，其他的塞回去，搞什么？
 		  userLocks = yield* getUserLocks(docId, conn.sessionId);
       }
-      // Для данного пользователя снимаем Lock с документа, если пришел флаг unlock
+      //原 对于此用户，如果解锁标志到来，我们将从文档中删除Lock
       const checkEndAuthLockRes = yield* checkEndAuthLock(data.unlock, false, docId, userId);
       if (!checkEndAuthLockRes) {
         const arrLocks = _.map(userLocks, function(e) {
@@ -2469,9 +2469,9 @@ exports.install = function(server, callbackFunction) {
           changes: changesToSend, startIndex: startIndex, changesIndex: puckerIndex,
           locks: arrLocks, excelAdditionalInfo: data.excelAdditionalInfo}, docId, userId);
       }
-      // Автоматически снимаем lock сами и посылаем индекс для сохранения
+      //原 自动删除锁定并发送索引进行保存
       yield* unSaveLock(conn, changesIndex, newChangesLastTime);
-      //last save
+      //原 last save
       if (newChangesLastTime) {
         let commands = [
           ['del', redisKeyForceSave + docId],
@@ -2510,7 +2510,7 @@ exports.install = function(server, callbackFunction) {
     }
   }
 
-  // Можем ли мы сохранять ?
+  //原：我们能救吗？
   function* isSaveLock(conn) {
     let isSaveLock = true;
     const exist = yield utils.promiseRedis(redisClient, redisClient.setnx, redisKeySaveLock + conn.docId, conn.user.id);
@@ -2519,11 +2519,11 @@ exports.install = function(server, callbackFunction) {
       const saveLock = yield utils.promiseRedis(redisClient, redisClient.expire, redisKeySaveLock + conn.docId, cfgExpSaveLock);
     }
 
-    // Отправляем только тому, кто спрашивал (всем отправлять нельзя)
+    //原：我们只发送给要求的人（所有人都不能发送）
     sendData(conn, {type: "saveLock", saveLock: isSaveLock});
   }
 
-  // Снимаем лок с сохранения
+  //原：从保存中删除锁定
   function* unSaveLock(conn, index, time) {
     const saveLock = yield utils.promiseRedis(redisClient, redisClient.get, redisKeySaveLock + conn.docId);
     // ToDo проверка null === saveLock это заглушка на подключение второго пользователя в документ (не делается saveLock в этот момент, но идет сохранение и снять его нужно)
